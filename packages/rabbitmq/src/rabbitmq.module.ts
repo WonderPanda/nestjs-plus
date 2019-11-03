@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import {
   AsyncOptionsFactoryProvider,
-  createAsyncOptionsProvider
+  createAsyncProviders
 } from '@nestjs-plus/common';
 import { ExternalContextCreator } from '@nestjs/core/helpers/external-context-creator';
 import { groupBy } from 'lodash';
@@ -36,10 +36,12 @@ export class RabbitMQModule implements OnModuleInit {
       exports: [AmqpConnection],
       imports: asyncOptionsFactoryProvider.imports,
       providers: [
-        ...this.createAsyncProviders(asyncOptionsFactoryProvider),
+        ...createAsyncProviders(asyncOptionsFactoryProvider, RABBIT_CONFIG),
         {
           provide: AmqpConnection,
-          useFactory: async (config): Promise<AmqpConnection> => {
+          useFactory: async (
+            config: RabbitMQConfig
+          ): Promise<AmqpConnection> => {
             const connection = new AmqpConnection(config);
             await connection.init();
             const logger = new Logger(RabbitMQModule.name);
@@ -145,42 +147,5 @@ export class RabbitMQModule implements OnModuleInit {
         })
       );
     }
-  }
-
-  private static createAsyncProviders(
-    asyncOptionsFactoryProvider: AsyncOptionsFactoryProvider<RabbitMQConfig>
-  ): Provider[] {
-    const optionsProvider = createAsyncOptionsProvider(
-      RABBIT_CONFIG,
-      asyncOptionsFactoryProvider
-    );
-
-    if (asyncOptionsFactoryProvider.useFactory) {
-      return [optionsProvider];
-    }
-
-    if (asyncOptionsFactoryProvider.useClass) {
-      return [
-        optionsProvider,
-        {
-          provide: asyncOptionsFactoryProvider.useClass,
-          useClass: asyncOptionsFactoryProvider.useClass
-        }
-      ];
-    }
-
-    if (asyncOptionsFactoryProvider.useExisting) {
-      return [
-        optionsProvider,
-        {
-          provide:
-            asyncOptionsFactoryProvider.useExisting.provide ||
-            asyncOptionsFactoryProvider.useExisting.value.constructor.name,
-          useValue: asyncOptionsFactoryProvider.useExisting.value
-        }
-      ];
-    }
-
-    return [];
   }
 }

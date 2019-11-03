@@ -26,7 +26,7 @@ class ExampleService {
 })
 class ExampleModule {}
 
-describe('RabbitMQ', () => {
+describe('RabbitMQModule', () => {
   let app: TestingModule;
   let amqpMock: AmqpConnection;
 

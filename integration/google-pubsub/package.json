@@ -1,0 +1,24 @@
+{
+  "name": "nestjs-plus-google-pubsub-integration",
+  "version": "1.0.0",
+  "description": "Integration tests for google pubsub support in nestjs-plus",
+  "main": "index.ts",
+  "author": "Jesse Carter",
+  "license": "MIT",
+  "dependencies": {
+    "@nestjs/common": "^6.0.2",
+    "@nestjs/core": "^6.0.2",
+    "@nestjs/microservices": "^6.0.2",
+    "dotenv": "^7.0.0",
+    "reflect-metadata": "0.1.13",
+    "rimraf": "2.6.3",
+    "rxjs": "^6.4.0"
+  },
+  "devDependencies": {
+    "jest": "^24.7.1",
+    "ts-jest": "^24.0.2"
+  },
+  "scripts": {
+    "test": "jest --config ./e2e/jest-e2e.json --setupFiles dotenv/config --forceExit"
+  }
+}

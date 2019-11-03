@@ -47,3 +47,41 @@ export function createAsyncOptionsProvider<T>(
     ]
   };
 }
+
+export function createAsyncProviders<T>(
+  asyncOptionsFactoryProvider: AsyncOptionsFactoryProvider<T>,
+  configProviderToken: string | symbol | Type<any>
+): Provider[] {
+  const optionsProvider = createAsyncOptionsProvider(
+    configProviderToken,
+    asyncOptionsFactoryProvider
+  );
+
+  if (asyncOptionsFactoryProvider.useFactory) {
+    return [optionsProvider];
+  }
+
+  if (asyncOptionsFactoryProvider.useClass) {
+    return [
+      optionsProvider,
+      {
+        provide: asyncOptionsFactoryProvider.useClass,
+        useClass: asyncOptionsFactoryProvider.useClass
+      }
+    ];
+  }
+
+  if (asyncOptionsFactoryProvider.useExisting) {
+    return [
+      optionsProvider,
+      {
+        provide:
+          asyncOptionsFactoryProvider.useExisting.provide ||
+          asyncOptionsFactoryProvider.useExisting.value.constructor.name,
+        useValue: asyncOptionsFactoryProvider.useExisting.value
+      }
+    ];
+  }
+
+  return [];
+}

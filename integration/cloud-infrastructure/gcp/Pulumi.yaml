@@ -1,0 +1,3 @@
+name: nestjs-plus-gcp-integration
+runtime: nodejs
+description: Integration resources for testing nestjs-plus modules on GCP

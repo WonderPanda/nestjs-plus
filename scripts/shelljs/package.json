@@ -1,0 +1,11 @@
+{
+  "name": "shelljs",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^2.20.0",
+    "lodash": "^4.17.11",
+    "shelljs": "^0.8.3"
+  }
+}

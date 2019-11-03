@@ -1,0 +1,56 @@
+{
+  "name": "@nestjs-plus/google-pubsub",
+  "version": "0.0.0",
+  "description": "Badass Google PubSub functionality for NestJS",
+  "keywords": [
+    "NestJS",
+    "microservices",
+    "messaging",
+    "pubsub",
+    "Google"
+  ],
+  "author": "Jesse Carter <jesse.r.carter@gmail.com>",
+  "homepage": "https://github.com/WonderPanda/nestjs-plus/blob/master/packages/google-pubsub/README.md",
+  "main": "lib/index.js",
+  "typings": "lib/index.d.ts",
+  "directories": {
+    "lib": "lib",
+    "test": "__tests__"
+  },
+  "files": [
+    "lib"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WonderPanda/nestjs-plus.git"
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.build.json",
+    "build:watch": "tsc --build tsconfig.build.json --watch",
+    "test": "jest"
+  },
+  "bugs": {
+    "url": "https://github.com/WonderPanda/nestjs-plus/issues"
+  },
+  "dependencies": {
+    "@google-cloud/pubsub": "^0.28.1",
+    "@nestjs-plus/discovery": "^2.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "rootDir": "src",
+    "testRegex": ".spec.ts$",
+    "transform": {
+      "^.+\\.ts$": "ts-jest"
+    },
+    "coverageDirectory": "../coverage",
+    "testEnvironment": "node"
+  }
+}
