@@ -22,6 +22,7 @@ import {
   MessageHandlerErrorBehavior,
 } from './errorBehaviors';
 import { Nack, RpcResponse, SubscribeResponse } from './handlerResponses';
+import { inspect } from 'util';
 
 const DIRECT_REPLY_QUEUE = 'amq.rabbitmq.reply-to';
 
@@ -172,6 +173,9 @@ export class AmqpConnection {
   }
 
   private async initDirectReplyQueue(channel: amqplib.ConfirmChannel) {
+    this.logger.verbose(
+      'Set up a consumer on the Direct Reply-To queue to facilitate RPC functionality'
+    );
     // Set up a consumer on the Direct Reply-To queue to facilitate RPC functionality
     await channel.consume(
       DIRECT_REPLY_QUEUE,
@@ -263,7 +267,9 @@ export class AmqpConnection {
 
     await channel.consume(queue, async (msg) => {
       try {
+        this.logger.verbose(`Consuming message: ${inspect(msg)}`);
         if (msg == null) {
+          this.logger.verbose('Message is null, throwing error');
           throw new Error('Received null message');
         }
 
@@ -274,11 +280,17 @@ export class AmqpConnection {
         );
 
         if (response instanceof Nack) {
+          this.logger.verbose(
+            'Received Nack response, sending nack to channel'
+          );
           channel.nack(msg, false, response.requeue);
           return;
         }
 
         if (response) {
+          this.logger.verbose(
+            'Received response from subscribe handler. Subscribe handlers should only return void'
+          );
           throw new Error(
             'Received response from subscribe handler. Subscribe handlers should only return void'
           );
@@ -286,6 +298,9 @@ export class AmqpConnection {
 
         channel.ack(msg);
       } catch (e) {
+        this.logger.verbose(
+          `Got an error when handling message: ${inspect(e)}`
+        );
         if (msg == null) {
           return;
         } else {
@@ -337,7 +352,9 @@ export class AmqpConnection {
 
     await channel.consume(queue, async (msg) => {
       try {
+        this.logger.verbose(`Consuming RPC message: ${inspect(msg)}`);
         if (msg == null) {
+          this.logger.verbose('Message is null, throwing error');
           throw new Error('Received null message');
         }
 
@@ -348,16 +365,25 @@ export class AmqpConnection {
         );
 
         if (response instanceof Nack) {
+          this.logger.verbose(
+            'Received Nack response, sending nack to channel'
+          );
           channel.nack(msg, false, response.requeue);
           return;
         }
 
         const { replyTo, correlationId } = msg.properties;
         if (replyTo) {
+          this.logger.verbose(
+            `reply to is enabled, sending response with correlationId ${correlationId}`
+          );
           this.publish('', replyTo, response, { correlationId });
         }
         channel.ack(msg);
       } catch (e) {
+        this.logger.verbose(
+          `Got an error when handling message: ${inspect(e)}`
+        );
         if (msg == null) {
           return;
         } else {
