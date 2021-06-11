@@ -22,12 +22,16 @@ import {
   MessageHandlerErrorBehavior,
 } from './errorBehaviors';
 import { Nack, RpcResponse, SubscribeResponse } from './handlerResponses';
+import {
+  defaultMessageSerializer,
+  jsonMessageDeserializer,
+} from './serialization';
 
 const DIRECT_REPLY_QUEUE = 'amq.rabbitmq.reply-to';
 
 export interface CorrelationMessage {
   correlationId: string;
-  message: {};
+  message: amqplib.ConsumeMessage;
 }
 
 const defaultConfig = {
@@ -46,6 +50,12 @@ const defaultConfig = {
   registerHandlers: true,
   enableDirectReplyTo: true,
 };
+
+class AmpqConnectionException extends Error {
+  constructor(readonly message: string, readonly cause?: Error) {
+    super(message);
+  }
+}
 
 export class AmqpConnection {
   private readonly messageSubject = new Subject<CorrelationMessage>();
@@ -154,11 +164,13 @@ export class AmqpConnection {
   ): Promise<void> {
     this._channel = channel;
 
-    this.config.exchanges.forEach(async (x) =>
-      channel.assertExchange(
-        x.name,
-        x.type || this.config.defaultExchangeType,
-        x.options
+    await Promise.all(
+      this.config.exchanges.map((x) =>
+        channel.assertExchange(
+          x.name,
+          x.type || this.config.defaultExchangeType,
+          x.options
+        )
       )
     );
 
@@ -182,7 +194,7 @@ export class AmqpConnection {
 
         const correlationMessage: CorrelationMessage = {
           correlationId: msg.properties.correlationId.toString(),
-          message: JSON.parse(msg.content.toString()),
+          message: msg,
         };
 
         this.messageSubject.next(correlationMessage);
@@ -199,10 +211,12 @@ export class AmqpConnection {
     const correlationId = requestOptions.correlationId || uuid.v4();
     const timeout = requestOptions.timeout || this.config.defaultRpcTimeout;
     const payload = requestOptions.payload || {};
+    const messageDeserializer =
+      requestOptions.messageDeserializer || defaultMessageSerializer;
 
     const response$ = this.messageSubject.pipe(
       filter((x) => x.correlationId === correlationId),
-      map((x) => x.message as T),
+      map((x) => messageDeserializer(x.message.content) as T),
       first()
     );
 
@@ -248,30 +262,36 @@ export class AmqpConnection {
     msgOptions: MessageHandlerOptions,
     channel: amqplib.ConfirmChannel
   ): Promise<void> {
-    const { exchange, routingKey, allowNonJsonMessages } = msgOptions;
-
-    const { queue } = await channel.assertQueue(
-      msgOptions.queue || '',
-      msgOptions.queueOptions || undefined
-    );
-
+    const {
+      exchange,
+      routingKey,
+      // TODO: This needs to be revisited
+      messageDeserializer = jsonMessageDeserializer,
+      queue: queueName = '',
+      queueOptions,
+      allowNonJsonMessages,
+    } = msgOptions;
     const routingKeys = Array.isArray(routingKey) ? routingKey : [routingKey];
 
+    const { queue } = await channel.assertQueue(queueName, queueOptions);
     await Promise.all(
       routingKeys.map((x) => channel.bindQueue(queue, exchange, x))
     );
 
     await channel.consume(queue, async (msg) => {
       try {
-        if (msg == null) {
-          throw new Error('Received null message');
+        if (msg === null) {
+          throw new AmpqConnectionException('Received null message');
         }
 
-        const response = await this.handleMessage(
-          handler,
-          msg,
-          allowNonJsonMessages
-        );
+        // const response = await this.handleMessage(
+        //   handler,
+        //   msg,
+        //   allowNonJsonMessages
+        // );
+
+        const message = messageDeserializer(msg.content);
+        const response = await handler(message, msg);
 
         if (response instanceof Nack) {
           channel.nack(msg, false, response.requeue);
@@ -279,7 +299,7 @@ export class AmqpConnection {
         }
 
         if (response) {
-          throw new Error(
+          throw new AmpqConnectionException(
             'Received response from subscribe handler. Subscribe handlers should only return void'
           );
         }
@@ -322,15 +342,18 @@ export class AmqpConnection {
     rpcOptions: MessageHandlerOptions,
     channel: amqplib.ConfirmChannel
   ) {
-    const { exchange, routingKey, allowNonJsonMessages } = rpcOptions;
-
-    const { queue } = await channel.assertQueue(
-      rpcOptions.queue || '',
-      rpcOptions.queueOptions || undefined
-    );
-
+    const {
+      exchange,
+      routingKey,
+      // TODO: This needs to be revisited
+      messageDeserializer = jsonMessageDeserializer,
+      queue: queueName = '',
+      queueOptions,
+      allowNonJsonMessages,
+    } = rpcOptions;
     const routingKeys = Array.isArray(routingKey) ? routingKey : [routingKey];
 
+    const { queue } = await channel.assertQueue(queueName, queueOptions);
     await Promise.all(
       routingKeys.map((x) => channel.bindQueue(queue, exchange, x))
     );
@@ -338,14 +361,17 @@ export class AmqpConnection {
     await channel.consume(queue, async (msg) => {
       try {
         if (msg == null) {
-          throw new Error('Received null message');
+          throw new AmpqConnectionException('Received null message');
         }
 
-        const response = await this.handleMessage(
-          handler,
-          msg,
-          allowNonJsonMessages
-        );
+        // const response = await this.handleMessage(
+        //   handler,
+        //   msg,
+        //   allowNonJsonMessages
+        // );
+
+        const message = messageDeserializer(msg.content);
+        const response = await handler(message, msg);
 
         if (response instanceof Nack) {
           channel.nack(msg, false, response.requeue);
@@ -382,7 +408,7 @@ export class AmqpConnection {
   ) {
     // source amqplib channel is used directly to keep the behavior of throwing connection related errors
     if (!this.managedConnection.isConnected() || !this._channel) {
-      throw new Error('AMQP connection is not available');
+      throw new AmpqConnectionException('AMQP connection is not available');
     }
 
     let buffer: Buffer;

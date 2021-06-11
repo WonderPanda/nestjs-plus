@@ -1,9 +1,12 @@
 import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
+import { AppController, MessageSchema } from './app.controller';
 import { RpcService } from './rpc/rpc.service';
 
 const rabbitHost = process.env.NODE_ENV === 'ci' ? 'rabbit' : 'localhost';
+
+const customExchangeSerializer = (message: MessageSchema) =>
+  Object.values(message).join('|');
 
 @Module({
   imports: [
@@ -13,6 +16,11 @@ const rabbitHost = process.env.NODE_ENV === 'ci' ? 'rabbit' : 'localhost';
           {
             name: 'exchange1',
             type: 'topic',
+          },
+          {
+            name: 'customExchange',
+            type: 'fanout',
+            messageSerializer: customExchangeSerializer,
           },
         ],
         uri: `amqp://rabbitmq:rabbitmq@${rabbitHost}:5672`,

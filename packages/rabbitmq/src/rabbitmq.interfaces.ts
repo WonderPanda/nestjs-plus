@@ -4,16 +4,16 @@ import {
   MessageErrorHandler,
   MessageHandlerErrorBehavior,
 } from './amqp/errorBehaviors';
+import {
+  AmqpMessageDeserializer,
+  AmqpMessageSerializer,
+} from './amqp/serialization';
 
 export interface RabbitMQExchangeConfig {
   name: string;
   type?: string;
   options?: amqplib.Options.AssertExchange;
-}
-
-export interface MessageOptions {
-  exchange: string;
-  routingKey: string;
+  messageSerializer?: AmqpMessageSerializer;
 }
 
 export interface RequestOptions {
@@ -22,6 +22,7 @@ export interface RequestOptions {
   correlationId?: string;
   timeout?: number;
   payload?: any;
+  messageDeserializer?: AmqpMessageDeserializer<any>;
 }
 
 export interface QueueOptions {
@@ -52,6 +53,7 @@ export interface MessageHandlerOptions {
    */
   errorHandler?: MessageErrorHandler;
   allowNonJsonMessages?: boolean;
+  messageDeserializer?: AmqpMessageDeserializer<any>;
 }
 
 export interface ConnectionInitOptions {
